@@ -6,7 +6,7 @@
 
     <groupId>com.books</groupId>
     <artifactId>db-init-flyway-spring-boot-starter</artifactId>
-    <version>1.0.0</version>
+    <version>1.0.1</version>
     <packaging>jar</packaging>
 
     <name>DB Init Flyway Spring Boot Starter</name>
@@ -16,7 +16,7 @@
         <maven.compiler.source>17</maven.compiler.source>
         <maven.compiler.target>17</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <spring.boot.version>3.4.5</spring.boot.version>
+        <spring.boot.version>3.4.13</spring.boot.version>
         <lombok.version>1.18.36</lombok.version>
     </properties>
 
