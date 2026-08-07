@@ -1,0 +1,22 @@
+name: CI
+
+# workers-world actions bundle: actions/v0.4.3（禁止 @master）
+on:
+  push:
+    branches: ["dev_*"]
+  pull_request:
+    branches: ["master"]
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  ci:
+    uses: workers-world/.github/.github/workflows/java/java-maven-sdk-ci.yml@actions/v0.4.3
+    secrets: inherit
+    with:
+      github_packages_repo: db-init-flyway-spring-boot-starter
+      server_id: github-db-init-flyway
+      maven_goals: verify
+      maven_deploy_args: -DskipTests
