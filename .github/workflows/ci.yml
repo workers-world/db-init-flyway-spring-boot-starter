@@ -27,4 +27,4 @@ jobs:
       concurrency_group: sdk-ci-${{ github.repository }}-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
       github_packages_repos_for_verify: ""
       maven_goals: verify
-      maven_deploy_args: -DskipTests
+      maven_deploy_args: -DskipTests -Dmaven.javadoc.skip=true

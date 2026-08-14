@@ -129,12 +129,13 @@
         <repository>
             <id>github-db-init-flyway</id>
             <name>GitHub Packages — db-init-flyway-spring-boot-starter</name>
-            <url>https://maven.pkg.github.com/ONGOING-Z/db-init-flyway-spring-boot-starter</url>
+            <url>https://maven.pkg.github.com/workers-world/db-init-flyway-spring-boot-starter</url>
         </repository>
         <snapshotRepository>
             <id>github-db-init-flyway</id>
             <name>GitHub Packages — db-init-flyway-spring-boot-starter</name>
-            <url>https://maven.pkg.github.com/ONGOING-Z/db-init-flyway-spring-boot-starter</url>
+            <url>https://maven.pkg.github.com/workers-world/db-init-flyway-spring-boot-starter</url>
+            <uniqueVersion>false</uniqueVersion>
         </snapshotRepository>
     </distributionManagement>
 </project>
