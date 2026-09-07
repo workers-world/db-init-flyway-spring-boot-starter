@@ -1,0 +1,4 @@
+# 数据库初始化器检测:让 JPA EntityManagerFactory 等 @DependsOnDatabaseInitialization Bean
+# 自动依赖 DbInitMigrationInitializer,保证「先迁移、后查库」的启动时序契约
+org.springframework.boot.sql.init.dependency.DatabaseInitializerDetector=\
+com.books.dbinit.DbInitInitializerDetector

@@ -3,18 +3,19 @@ package com.books.dbinit.actuator;
 import com.books.dbinit.config.DbInitProperties;
 import org.springframework.boot.actuate.endpoint.annotation.Endpoint;
 import org.springframework.boot.actuate.endpoint.annotation.ReadOperation;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.stereotype.Component;
 
 import javax.sql.DataSource;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-@Component
+/**
+ * 迁移历史只读端点。由 {@code DbInitAutoConfiguration} 按
+ * {@code @ConditionalOnAvailableEndpoint} 注册(历史版本标注 {@code @Component},
+ * 但没有任何组件扫描覆盖 com.books 包,实际从未生效)。
+ */
 @Endpoint(id = "db-init")
-@ConditionalOnClass(Endpoint.class)
 public class DbInitEndpoint {
 
     private final JdbcTemplate jdbcTemplate;

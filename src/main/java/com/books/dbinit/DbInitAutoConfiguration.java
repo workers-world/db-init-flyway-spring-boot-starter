@@ -1,131 +1,65 @@
 package com.books.dbinit;
 
-import com.books.dbinit.callback.DbInitAfterMigrateCallback;
+import com.books.dbinit.actuator.DbInitEndpoint;
 import com.books.dbinit.config.DbInitProperties;
 import lombok.extern.slf4j.Slf4j;
-import org.flywaydb.core.Flyway;
-import org.flywaydb.core.api.MigrationVersion;
-import org.flywaydb.core.api.callback.Callback;
-import org.flywaydb.core.api.output.MigrateResult;
-import org.springframework.beans.factory.InitializingBean;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.actuate.autoconfigure.endpoint.condition.ConditionalOnAvailableEndpoint;
+import org.springframework.boot.actuate.endpoint.annotation.Endpoint;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.ApplicationContext;
+import org.springframework.context.annotation.Bean;
 import org.springframework.core.env.Environment;
 
 import javax.sql.DataSource;
-import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Function;
 
+/**
+ * db-init 自动配置。
+ *
+ * <p>相对历史实现的变化:</p>
+ * <ul>
+ *   <li>不再在自动配置类上直接实现 {@code InitializingBean}:迁移逻辑移入
+ *       {@link DbInitMigrationInitializer} 独立 Bean,借助 spring.factories 注册的
+ *       {@link DbInitInitializerDetector} 获得「JPA 等 Bean 依赖数据库初始化」的时序契约。</li>
+ *   <li>不再通过 jar 内隐藏的 {@code application.properties} 设置
+ *       {@code spring.flyway.enabled=false}:Boot 4 的 Flyway 自动配置位于独立模块
+ *       (spring-boot-flyway),本 starter 不与其冲突;若消费方同时引入该模块,
+ *       应自行通过 {@code spring.autoconfigure.exclude} 二选一,避免双重迁移。</li>
+ * </ul>
+ */
 @Slf4j
 @AutoConfiguration
 @EnableConfigurationProperties(DbInitProperties.class)
 @ConditionalOnProperty(
         prefix = "db-init", name = "enabled", havingValue = "true", matchIfMissing = true)
-public class DbInitAutoConfiguration implements InitializingBean {
+public class DbInitAutoConfiguration {
 
-    private final DbInitProperties properties;
-    private final ApplicationContext ctx;
-    private final Environment env;
-    private final List<Callback> customCallbacks;
-
-    public DbInitAutoConfiguration(DbInitProperties properties, ApplicationContext ctx,
-                                   Environment env,
-                                   @Autowired(required = false) List<Callback> customCallbacks) {
-        this.properties = properties;
-        this.ctx = ctx;
-        this.env = env;
-        this.customCallbacks = customCallbacks != null ? customCallbacks : List.of();
+    @Bean
+    @ConditionalOnMissingBean
+    public DbInitMigrationInitializer dbInitMigrationInitializer(
+            DataSource primaryDataSource,
+            ApplicationContext applicationContext,
+            DbInitProperties properties,
+            Environment environment,
+            @Autowired(required = false) List<org.flywaydb.core.api.callback.Callback> customCallbacks) {
+        Function<String, DataSource> lookup = name -> "primary".equals(name)
+                ? primaryDataSource
+                : applicationContext.getBean(name, DataSource.class);
+        return new DbInitMigrationInitializer(lookup, properties,
+                List.of(environment.getActiveProfiles()), customCallbacks);
     }
 
-    @Override
-    public void afterPropertiesSet() {
-        log.info("db-init 开始 Flyway 数据库迁移");
-
-        if (!properties.getDatasources().isEmpty()) {
-            properties.getDatasources().forEach((name, config) -> {
-                if (!config.isEnabled()) {
-                    log.info("db-init 数据源 [{}] 已禁用，跳过", name);
-                    return;
-                }
-                DataSource ds = ctx.getBean(name, DataSource.class);
-                applyMigrations(ds, toFlywayConfig(config), name);
-            });
-        } else {
-            DataSource ds = ctx.getBean(DataSource.class);
-            applyMigrations(ds, toFlywayConfig(properties), "primary");
-        }
-
-        log.info("db-init Flyway 数据库迁移完成");
+    @Bean
+    @ConditionalOnClass(Endpoint.class)
+    @ConditionalOnAvailableEndpoint(endpoint = DbInitEndpoint.class)
+    public DbInitEndpoint dbInitEndpoint(ObjectProvider<DataSource> dataSource, DbInitProperties properties) {
+        return new DbInitEndpoint(dataSource.getObject(), properties);
     }
-
-    private void applyMigrations(DataSource ds, FlywayConfig fc, String dsName) {
-        List<String> locations = resolveLocations(fc.locations);
-        if (locations.isEmpty()) {
-            locations = List.of("classpath:db/migration");
-        }
-
-        List<Callback> callbacks = new ArrayList<>();
-        callbacks.add(new DbInitAfterMigrateCallback());
-        callbacks.addAll(customCallbacks);
-
-        Flyway flyway = Flyway.configure()
-                .dataSource(ds)
-                .locations(locations.toArray(new String[0]))
-                .table(fc.table)
-                .validateOnMigrate(fc.validateOnMigrate)
-                .baselineOnMigrate(fc.baselineOnMigrate)
-                .baselineVersion(fc.baselineVersion != null ? MigrationVersion.fromVersion(fc.baselineVersion) : null)
-                .callbacks(callbacks.toArray(new Callback[0]))
-                .load();
-
-        if (properties.isRepair()) {
-            log.warn("db-init repair 模式已启用，仅限开发环境使用！");
-            flyway.repair();
-        }
-
-        MigrateResult result = flyway.migrate();
-        String schema = result.schemaName != null ? result.schemaName : "default";
-        String version = result.targetSchemaVersion != null ? result.targetSchemaVersion : "baseline";
-        log.info("db-init [{}] 迁移完成: schema={} 已执行={} 版本={}",
-                dsName, schema, result.migrationsExecuted, version);
-    }
-
-    private List<String> resolveLocations(List<String> configured) {
-        List<String> result = new ArrayList<>(configured != null ? configured : List.of());
-        if (properties.isProfileAware()) {
-            for (String profile : env.getActiveProfiles()) {
-                String suffix = "-" + profile;
-                for (String loc : new ArrayList<>(result)) {
-                    if (!loc.endsWith(suffix)) {
-                        result.add(loc + suffix);
-                    }
-                }
-            }
-        }
-        return result;
-    }
-
-    private FlywayConfig toFlywayConfig(DbInitProperties p) {
-        return new FlywayConfig(
-                p.getLocations(),
-                p.getTable(),
-                p.isValidateOnMigrate(),
-                p.isBaselineOnMigrate(),
-                p.getBaselineVersion());
-    }
-
-    private FlywayConfig toFlywayConfig(DbInitProperties.DatasourceConfig c) {
-        return new FlywayConfig(
-                c.getLocations(),
-                c.getTable() != null ? c.getTable() : properties.getTable(),
-                c.isValidateOnMigrate(),
-                c.isBaselineOnMigrate(),
-                c.getBaselineVersion() != null ? c.getBaselineVersion() : properties.getBaselineVersion());
-    }
-
-    private record FlywayConfig(List<String> locations, String table, boolean validateOnMigrate,
-                                boolean baselineOnMigrate, String baselineVersion) {}
 }
