@@ -14,8 +14,12 @@ import java.util.Map;
  * 迁移历史只读端点。由 {@code DbInitAutoConfiguration} 按
  * {@code @ConditionalOnAvailableEndpoint} 注册(历史版本标注 {@code @Component},
  * 但没有任何组件扫描覆盖 com.books 包,实际从未生效)。
+ *
+ * <p>端点 id 为 {@code dbinit}:Spring Boot 对含连字符的 EndpointId 打印
+ * "contains invalid characters" 迁移警告(历史 id 为 {@code db-init})。
+ * 暴露需在消费方配置 {@code management.endpoints.web.exposure.include} 含 {@code dbinit}。</p>
  */
-@Endpoint(id = "db-init")
+@Endpoint(id = "dbinit")
 public class DbInitEndpoint {
 
     private final JdbcTemplate jdbcTemplate;
