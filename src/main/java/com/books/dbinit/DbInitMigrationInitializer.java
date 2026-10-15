@@ -24,7 +24,7 @@ import java.util.List;
  *       {@code @DependsOnDatabaseInitialization} 的 Bean 会自动依赖本 Bean,
  *       不再可能在迁移前抢先查库。</li>
  *   <li><b>多数据源配置穿透修复</b>:per-DS 未配置的 validate/baseline/table/locations
- *       均继承父级(见 {@link DbInitProperties#effective*})。</li>
+ *       均继承父级（见 {@link DbInitProperties} 的 effective* 方法）。</li>
  * </ul>
  */
 @Slf4j
